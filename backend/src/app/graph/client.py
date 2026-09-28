@@ -17,7 +17,7 @@ class GraphClient:
         self._msal_app = msal.ConfidentialClientApplication(
             client_id=settings.client_id,
             client_credential=settings.client_secret,
-            authority=f"https://login.microsoftonline.com/{settings.tenant_id}",
+            authority=f"{settings.graph_authority_url}/{settings.tenant_id}",
         )
         self._http = httpx.AsyncClient(base_url=settings.graph_base_url, timeout=30.0)
         self._mailbox_path = f"/users/{settings.mailbox_upn}"
@@ -35,7 +35,10 @@ class GraphClient:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         token = self._get_token()
-        headers = kwargs.pop("headers", {})
+        headers = {
+            "Prefer": 'outlook.body-content-type="text"',
+            **kwargs.pop("headers", {}),
+        }
         headers["Authorization"] = f"Bearer {token}"
         response = await self._http.request(method, path, headers=headers, **kwargs)
         raise_for_graph_status(response)
@@ -50,17 +53,33 @@ class GraphClient:
         return response.json()
 
     async def list_inbox_messages(self, top: int) -> dict:
-        return await self._list_messages("inbox", top)
+        return await self._list_messages(self._settings.mail_folder_inbox, top)
 
     async def list_drafts(self, top: int) -> dict:
-        return await self._list_messages("drafts", top)
+        return await self._list_messages(self._settings.mail_folder_drafts, top)
 
     async def list_sent_items(self, top: int) -> dict:
-        return await self._list_messages("sentitems", top)
+        return await self._list_messages(self._settings.mail_folder_sentitems, top)
 
     async def get_message(self, message_id: str) -> dict:
         response = await self._request("GET", f"{self._mailbox_path}/messages/{message_id}")
         return response.json()
+
+    async def get_conversation(self, message_id: str) -> dict:
+        message = await self.get_message(message_id)
+        conversation_id = message["conversationId"]
+        response = await self._request(
+            "GET",
+            f"{self._mailbox_path}/messages",
+            params={
+                "$filter": f"conversationId eq '{conversation_id}'",
+                "$count": "true",
+            },
+            headers={"ConsistencyLevel": "eventual"},
+        )
+        data = response.json()
+        data["value"].sort(key=lambda item: item["receivedDateTime"])
+        return data
 
     async def send_mail(
         self,

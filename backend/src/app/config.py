@@ -12,7 +12,12 @@ class Settings(BaseSettings):
 
     graph_base_url: str = "https://graph.microsoft.com/v1.0"
     graph_scope: str = "https://graph.microsoft.com/.default"
+    graph_authority_url: str = "https://login.microsoftonline.com"
     default_page_size: int = 25
+
+    mail_folder_inbox: str = "inbox"
+    mail_folder_drafts: str = "drafts"
+    mail_folder_sentitems: str = "sentitems"
 
     model_config = SettingsConfigDict(
         env_file=".env",

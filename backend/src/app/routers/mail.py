@@ -1,8 +1,9 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 
 from app.deps import get_graph_client
 from app.graph.client import GraphClient
-from app.models.common import MessageDetail, MessageListResponse
 from app.models.messages import ForwardRequest, ReplyRequest, SendMailRequest
 from app.security import require_api_key
 
@@ -13,58 +14,66 @@ TopQuery = Query(default=25, ge=1, le=100, description="Max number of messages t
 
 @router.get(
     "/inbox",
-    response_model=MessageListResponse,
     summary="List inbox messages",
-    description="Lists messages in the mailbox's Inbox folder, newest first.",
+    description="Lists messages in the mailbox's Inbox folder, newest first, "
+    "as returned by Microsoft Graph.",
 )
 async def list_inbox(
     top: int = TopQuery,
     graph: GraphClient = Depends(get_graph_client),
-) -> MessageListResponse:
-    data = await graph.list_inbox_messages(top=top)
-    return MessageListResponse.from_graph(data)
+) -> dict[str, Any]:
+    return await graph.list_inbox_messages(top=top)
 
 
 @router.get(
     "/drafts",
-    response_model=MessageListResponse,
     summary="List draft messages",
-    description="Lists messages in the mailbox's Drafts folder.",
+    description="Lists messages in the mailbox's Drafts folder, as returned by Microsoft Graph.",
 )
 async def list_drafts(
     top: int = TopQuery,
     graph: GraphClient = Depends(get_graph_client),
-) -> MessageListResponse:
-    data = await graph.list_drafts(top=top)
-    return MessageListResponse.from_graph(data)
+) -> dict[str, Any]:
+    return await graph.list_drafts(top=top)
 
 
 @router.get(
     "/sentitems",
-    response_model=MessageListResponse,
     summary="List sent messages",
-    description="Lists messages in the mailbox's Sent Items folder.",
+    description="Lists messages in the mailbox's Sent Items folder, as returned by Microsoft Graph.",
 )
 async def list_sent_items(
     top: int = TopQuery,
     graph: GraphClient = Depends(get_graph_client),
-) -> MessageListResponse:
-    data = await graph.list_sent_items(top=top)
-    return MessageListResponse.from_graph(data)
+) -> dict[str, Any]:
+    return await graph.list_sent_items(top=top)
 
 
 @router.get(
     "/messages/{message_id}",
-    response_model=MessageDetail,
     summary="Get a single message",
-    description="Fetches full details (including body) for one message by its Graph message ID.",
+    description="Fetches full details (including body) for one message by its Graph message ID, "
+    "as returned by Microsoft Graph.",
 )
 async def get_message(
     message_id: str,
     graph: GraphClient = Depends(get_graph_client),
-) -> MessageDetail:
-    data = await graph.get_message(message_id)
-    return MessageDetail.from_graph(data)
+) -> dict[str, Any]:
+    return await graph.get_message(message_id)
+
+
+@router.get(
+    "/messages/{message_id}/trail",
+    summary="Get the mail trail for a message",
+    description="Fetches every message in this mailbox sharing the same conversation "
+    "(reply/forward trail) as the given message ID, oldest first, as returned by "
+    "Microsoft Graph.",
+)
+async def get_message_trail(
+    message_id: str,
+    graph: GraphClient = Depends(get_graph_client),
+) -> dict[str, Any]:
+    return await graph.get_conversation(message_id)
 
 
 @router.post(
