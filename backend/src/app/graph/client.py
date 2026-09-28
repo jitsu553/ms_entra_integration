@@ -44,22 +44,31 @@ class GraphClient:
         raise_for_graph_status(response)
         return response
 
-    async def _list_messages(self, folder: str, top: int) -> dict:
-        response = await self._request(
-            "GET",
-            f"{self._mailbox_path}/mailFolders/{folder}/messages",
-            params={"$top": top},
-        )
+    async def _list_messages(
+        self, folder: str, top: int, next_link: str | None = None
+    ) -> dict:
+        if next_link:
+            response = await self._request("GET", next_link)
+        else:
+            response = await self._request(
+                "GET",
+                f"{self._mailbox_path}/mailFolders/{folder}/messages",
+                params={"$top": top},
+            )
         return response.json()
 
-    async def list_inbox_messages(self, top: int) -> dict:
-        return await self._list_messages(self._settings.mail_folder_inbox, top)
+    async def list_inbox_messages(self, top: int, next_link: str | None = None) -> dict:
+        return await self._list_messages(self._settings.mail_folder_inbox, top, next_link)
 
-    async def list_drafts(self, top: int) -> dict:
-        return await self._list_messages(self._settings.mail_folder_drafts, top)
+    async def list_drafts(self, top: int, next_link: str | None = None) -> dict:
+        return await self._list_messages(self._settings.mail_folder_drafts, top, next_link)
 
-    async def list_sent_items(self, top: int) -> dict:
-        return await self._list_messages(self._settings.mail_folder_sentitems, top)
+    async def list_sent_items(self, top: int, next_link: str | None = None) -> dict:
+        return await self._list_messages(self._settings.mail_folder_sentitems, top, next_link)
+
+    async def get_folder(self, folder: str) -> dict:
+        response = await self._request("GET", f"{self._mailbox_path}/mailFolders/{folder}")
+        return response.json()
 
     async def get_message(self, message_id: str) -> dict:
         response = await self._request("GET", f"{self._mailbox_path}/messages/{message_id}")

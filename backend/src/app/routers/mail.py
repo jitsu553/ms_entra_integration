@@ -10,43 +10,66 @@ from app.security import require_api_key
 router = APIRouter(prefix="/mail", tags=["mail"], dependencies=[Depends(require_api_key)])
 
 TopQuery = Query(default=25, ge=1, le=100, description="Max number of messages to return")
+NextLinkQuery = Query(
+    default=None,
+    description="The @odata.nextLink from a previous page's response, to fetch the next page.",
+)
 
 
 @router.get(
     "/inbox",
     summary="List inbox messages",
     description="Lists messages in the mailbox's Inbox folder, newest first, "
-    "as returned by Microsoft Graph.",
+    "as returned by Microsoft Graph. Pass the previous response's @odata.nextLink "
+    "as next_link to fetch subsequent pages.",
 )
 async def list_inbox(
     top: int = TopQuery,
+    next_link: str | None = NextLinkQuery,
     graph: GraphClient = Depends(get_graph_client),
 ) -> dict[str, Any]:
-    return await graph.list_inbox_messages(top=top)
+    return await graph.list_inbox_messages(top=top, next_link=next_link)
 
 
 @router.get(
     "/drafts",
     summary="List draft messages",
-    description="Lists messages in the mailbox's Drafts folder, as returned by Microsoft Graph.",
+    description="Lists messages in the mailbox's Drafts folder, as returned by Microsoft Graph. "
+    "Pass the previous response's @odata.nextLink as next_link to fetch subsequent pages.",
 )
 async def list_drafts(
     top: int = TopQuery,
+    next_link: str | None = NextLinkQuery,
     graph: GraphClient = Depends(get_graph_client),
 ) -> dict[str, Any]:
-    return await graph.list_drafts(top=top)
+    return await graph.list_drafts(top=top, next_link=next_link)
 
 
 @router.get(
     "/sentitems",
     summary="List sent messages",
-    description="Lists messages in the mailbox's Sent Items folder, as returned by Microsoft Graph.",
+    description="Lists messages in the mailbox's Sent Items folder, as returned by Microsoft "
+    "Graph. Pass the previous response's @odata.nextLink as next_link to fetch subsequent pages.",
 )
 async def list_sent_items(
     top: int = TopQuery,
+    next_link: str | None = NextLinkQuery,
     graph: GraphClient = Depends(get_graph_client),
 ) -> dict[str, Any]:
-    return await graph.list_sent_items(top=top)
+    return await graph.list_sent_items(top=top, next_link=next_link)
+
+
+@router.get(
+    "/folders/{folder}",
+    summary="Get mail folder metadata",
+    description="Fetches metadata for a mail folder (e.g. inbox, drafts, sentitems), including "
+    "totalItemCount and unreadItemCount, as returned by Microsoft Graph.",
+)
+async def get_folder(
+    folder: str,
+    graph: GraphClient = Depends(get_graph_client),
+) -> dict[str, Any]:
+    return await graph.get_folder(folder)
 
 
 @router.get(
